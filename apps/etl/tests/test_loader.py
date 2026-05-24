@@ -1,14 +1,13 @@
-# ⚠️  MIGRATED — do not add tests here.
-#
-# These tests have been moved to the unified ETL workspace:
-#   apps/etl/tests/test_loader.py
-#
-# Run them with:
-#   cd apps/etl && pytest tests/test_loader.py
+import json
+import sys
+from pathlib import Path
 
-import pytest
+import pandas as pd
 
-pytest.skip("Migrated to apps/etl/tests/test_loader.py", allow_module_level=True)
+# Ensure src.* imports resolve when running pytest from apps/etl/
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from src.loaders.supabase_loader import SupabaseLoader
 
 
 class FakeExecuteResponse:
@@ -53,6 +52,9 @@ class FakeTable:
 
     def limit(self, value):
         self.limit_value = value
+        return self
+
+    def range(self, start, end):
         return self
 
     def execute(self):
@@ -218,7 +220,7 @@ def test_validation_failure_log_includes_required_debug_fields(tmp_path, capsys)
     assert log["error_category"] == "validation_error"
 
 
-def test_summary_prints_alert_when_success_rate_is_below_threshold(tmp_path, capsys):
+def test_summary_prints_alert_when_success_rate_is_below_threshold(tmp_path, caplog):
     client = FakeSupabaseClient(fail_batches=True, fail_generic_names={"Bad Float"})
     loader = make_loader(client, tmp_path)
     df = pd.DataFrame(
@@ -231,7 +233,7 @@ def test_summary_prints_alert_when_success_rate_is_below_threshold(tmp_path, cap
     stats = loader.load(df)
 
     assert stats["success_rate"] == 50.0
-    output = capsys.readouterr().out
+    output = caplog.text
     assert "ALERT" in output
     assert "95%" in output
 
