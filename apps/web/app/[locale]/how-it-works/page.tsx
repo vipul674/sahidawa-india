@@ -56,7 +56,7 @@ export default function HowItWorksPage() {
                     <Link
                         href="/"
                         aria-label="Back to Home"
-                        className="absolute left-6 top-6 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 shadow-sm transition-all duration-300 hover:bg-slate-200 hover:scale-105"
+                        className="absolute top-6 left-6 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 shadow-sm transition-all duration-300 hover:scale-105 hover:bg-slate-200"
                     >
                         <ArrowLeft size={22} className="text-slate-600" />
                     </Link>
