@@ -24,6 +24,7 @@ if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
     process.exit(1);
 }
 
+// Execute configuration validation after import completes
 validateMlServiceConfig();
 
 import cors from "cors";
