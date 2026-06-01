@@ -260,7 +260,7 @@ export default function SearchBar({ dark = false }: { dark?: boolean }) {
                         onChange={handleInputChange}
                         onKeyDown={handleKeyDown}
                         onFocus={() => {
-                            if (suggestions.length > 0) setIsOpen(true);
+                            setIsOpen(true);
                         }}
                         placeholder={tHome("search_placeholder")}
                         className={`w-full border-none bg-transparent py-1.5 text-base font-medium outline-none ${
@@ -275,7 +275,7 @@ export default function SearchBar({ dark = false }: { dark?: boolean }) {
                         className="flex shrink-0 items-center gap-2 rounded-xl bg-linear-to-r from-emerald-500 to-teal-500 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-emerald-500/25 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-emerald-500/35 active:scale-95"
                         aria-label="Submit search"
                     >
-                        <Search size={16} />
+                        <Search size={16} aria-hidden="true"/>
                         {tHome("search_button")}
                     </button>
                 </div>
