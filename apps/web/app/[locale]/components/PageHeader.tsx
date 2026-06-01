@@ -58,11 +58,11 @@ export const PageHeader = ({
                     <div className="min-w-0 flex-1">{children}</div>
                 ) : (
                     <div className="flex min-w-0 flex-1 flex-col items-center px-2 text-center">
-                        <span
+                        <h1
                             className={`w-full truncate text-[10px] font-bold tracking-widest uppercase sm:text-xs ${isDark ? "text-emerald-400" : "text-emerald-600 dark:text-emerald-400"}`}
                         >
                             {title}
-                        </span>
+                        </h1>
                         <span className="w-full truncate text-xs font-medium sm:text-sm">
                             {subtitle}
                         </span>
