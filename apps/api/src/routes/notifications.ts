@@ -67,17 +67,13 @@ router.get("/recalls/mock", (_req, res) => {
     res.json({ recalls: getMockRecallFeed() });
 });
 
-router.post(
-    "/recalls/mock/trigger",
-    requireAuth,
-    requireRole("admin"),
-    async (req, res) => {
-        if (process.env.NODE_ENV === "production") {
-            res.status(403).json({ error: "Mock triggers are disabled in production" });
-            return;
-        }
+router.post("/recalls/mock/trigger", requireAuth, requireRole("admin"), async (req, res) => {
+    if (process.env.NODE_ENV === "production") {
+        res.status(403).json({ error: "Mock triggers are disabled in production" });
+        return;
+    }
 
-        const feed = getMockRecallFeed();
+    const feed = getMockRecallFeed();
     const parsed = recallAlertSchema.partial({ id: true }).safeParse(req.body ?? {});
 
     if (!parsed.success) {
