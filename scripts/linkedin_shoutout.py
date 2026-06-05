@@ -19,6 +19,7 @@ Environment Variables Required (set as GitHub Secrets):
   - PR_BODY           : Description/body of the merged PR (optional)
   - PR_NUMBER         : PR number
   - PR_REPO           : Repository name (e.g. RatLoopz/sahidawa-india)
+  - PR_LINES_CHANGED  : Total lines added + deleted in the PR
 """
 
 import os
@@ -61,6 +62,7 @@ def get_pr_metadata() -> dict:
         "labels": os.environ.get("PR_LABELS", ""),
         "body": os.environ.get("PR_BODY", "").strip()[:500],
         "repo": os.environ.get("PR_REPO", "RatLoopz/sahidawa-india"),
+        "lines_changed": os.environ.get("PR_LINES_CHANGED", "0"),
     }
 
 
@@ -70,6 +72,31 @@ def determine_tier(labels_str: str) -> tuple:
         if label in labels:
             return LABEL_TIER_MAP[label]
     return ("🔥 Advanced-Level", "highly complex")
+
+
+def validate_pr_size(pr: dict) -> None:
+    """
+    Validates if the PR is substantial enough to warrant a shoutout.
+    - level:critical bypasses the check (critical bugs can be 1-line fixes).
+    - level:advanced requires at least 40 lines changed.
+    """
+    labels = [lbl.strip().lower() for lbl in pr["labels"].split(",")]
+    try:
+        lines_changed = int(pr["lines_changed"])
+    except ValueError:
+        lines_changed = 0
+
+    if "level:critical" in labels:
+        print("⚡ PR is level:critical. Bypassing size check.")
+        return
+
+    if lines_changed < 40:
+        print(f"🛑 REJECTED: PR only changed {lines_changed} lines.")
+        print("   Advanced shoutouts require at least 40 lines of code changes.")
+        print("   Exiting gracefully without triggering Make.com webhook or consuming AI credits.")
+        sys.exit(0)
+    
+    print(f"✅ PR Size Validation Passed. Lines changed: {lines_changed} (Threshold: 40)")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -224,10 +251,14 @@ def main():
     print(f"   Author : @{pr['author']}")
     print(f"   Number : #{pr['number']}")
     print(f"   Labels : {pr['labels']}")
-    print(f"   URL    : {pr['url']}\n")
+    print(f"   URL    : {pr['url']}")
+    print(f"   Lines  : {pr['lines_changed']}\n")
 
     tier_display, tier_desc = determine_tier(pr["labels"])
-    print(f"🏆 Tier: {tier_display}\n")
+    print(f"🏆 Tier: {tier_display}")
+
+    # The Smart Gate Validation
+    validate_pr_size(pr)
 
     ai_content = generate_post_with_gemini(pr, tier_display, tier_desc)
     final_post = assemble_final_post(ai_content, pr)

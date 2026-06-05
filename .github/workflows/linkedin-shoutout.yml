@@ -71,6 +71,14 @@ jobs:
                       const labels = pr.labels.map(l => l.name).join(',');
                       const body = (pr.body || '').substring(0, 500); // Cap body at 500 chars
 
+                      // Fetch full PR object to get accurate additions/deletions
+                      const { data: pullRequest } = await github.rest.pulls.get({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        pull_number: pr.number
+                      });
+                      const linesChanged = pullRequest.additions + pullRequest.deletions;
+
                       core.setOutput('pr_title', pr.title);
                       core.setOutput('pr_author', pr.user.login);
                       core.setOutput('pr_url', pr.html_url);
@@ -78,9 +86,11 @@ jobs:
                       core.setOutput('pr_labels', labels);
                       core.setOutput('pr_body', body);
                       core.setOutput('pr_repo', context.repo.owner + '/' + context.repo.repo);
+                      core.setOutput('pr_lines_changed', linesChanged.toString());
 
                       console.log(`PR: #${pr.number} "${pr.title}" by @${pr.user.login}`);
                       console.log(`Labels: ${labels}`);
+                      console.log(`Lines Changed: ${linesChanged}`);
 
             # ─────────────────────────────────────────────────────────────────
             # Step 5: Run the Python script that:
@@ -105,6 +115,7 @@ jobs:
                   PR_LABELS: ${{ steps.pr_meta.outputs.pr_labels }}
                   PR_BODY: ${{ steps.pr_meta.outputs.pr_body }}
                   PR_REPO: ${{ steps.pr_meta.outputs.pr_repo }}
+                  PR_LINES_CHANGED: ${{ steps.pr_meta.outputs.pr_lines_changed }}
               run: python scripts/linkedin_shoutout.py
 
             # ─────────────────────────────────────────────────────────────────
