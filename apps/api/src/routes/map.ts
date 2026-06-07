@@ -47,11 +47,16 @@ router.get("/nearby", async (req: Request, res: Response) => {
         return res.status(400).json({ error: "lat and lng are required query params" });
     }
 
+    if (!Number.isFinite(radius_km) || radius_km <= 0) {
+        return res.status(400).json({ error: "radius_km must be a positive number" });
+    }
+    const clampedRadius = Math.min(radius_km, 100);
+
     try {
         const pharmaciesRes = await supabase.rpc("get_nearest_pharmacies", {
             query_lat: lat,
             query_lng: lng,
-            search_radius_km: radius_km,
+            search_radius_km: clampedRadius,
         });
 
         if (pharmaciesRes.error) throw pharmaciesRes.error;
