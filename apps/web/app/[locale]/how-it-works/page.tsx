@@ -7,7 +7,7 @@ import {
     Store,
     BellRing,
     AlertTriangle,
-    ArrowLeft,
+    ArrowRight,
     QrCode,
     MapPin,
     Shield,
