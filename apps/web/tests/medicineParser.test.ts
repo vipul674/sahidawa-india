@@ -34,6 +34,15 @@ describe("extractExpiryDate", () => {
         expect(extractExpiryDate("EXPIRY 13/2029")).toBeNull(); // Invalid month
         expect(extractExpiryDate("12/2019")).toBeNull(); // Past year out of regex bounds
     });
+
+    it("returns null for impossible DD/MM/YYYY calendar dates", () => {
+        expect(extractExpiryDate("EXP 31/02/2027")).toBeNull(); // Feb 31 does not exist
+        expect(extractExpiryDate("30/02/2028")).toBeNull(); // Feb 30 does not exist
+        expect(extractExpiryDate("31/04/2027")).toBeNull(); // Apr 31 does not exist
+        expect(extractExpiryDate("31/06/2027")).toBeNull(); // Jun 31 does not exist
+        expect(extractExpiryDate("31/09/2027")).toBeNull(); // Sep 31 does not exist
+        expect(extractExpiryDate("31/11/2027")).toBeNull(); // Nov 31 does not exist
+    });
 });
 
 describe("extractBatchNumber", () => {
