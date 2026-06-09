@@ -72,4 +72,19 @@ describe("extractMedicineName", () => {
             "Some Random Line"
         );
     });
+
+    it("skips common pharmaceutical terms and extracts the medicine name", () => {
+        expect(extractMedicineName("TABLETS IP\nPARACETAMOL 500MG")).toBe("PARACETAMOL");
+        expect(extractMedicineName("CAPSULES\nAMOXICILLIN 250MG")).toBe("AMOXICILLIN");
+        expect(extractMedicineName("STRIP\nPARACETAMOL 500MG")).toBe("PARACETAMOL");
+        expect(extractMedicineName("DROPS\nCIPROFLOXACIN")).toBe("CIPROFLOXACIN");
+        expect(extractMedicineName("SYRUP\nAMBROXOL")).toBe("AMBROXOL");
+        expect(extractMedicineName("INJECTION\nDEXAMETHASONE")).toBe("DEXAMETHASONE");
+        expect(extractMedicineName("SUSPENSION\nCETIRIZINE")).toBe("CETIRIZINE");
+        expect(extractMedicineName("OINTMENT\nBETAMETHASONE")).toBe("BETAMETHASONE");
+        expect(extractMedicineName("CREAM\nCLOTRIMAZOL")).toBe("CLOTRIMAZOL");
+        expect(extractMedicineName("GEL\nDICLOFENAC")).toBe("DICLOFENAC");
+        expect(extractMedicineName("POWDER\nORS SACHET")).toBe("ORS SACHET");
+        expect(extractMedicineName("SPRAY\nFLUTICASONE")).toBe("FLUTICASONE");
+    });
 });
