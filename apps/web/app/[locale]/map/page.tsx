@@ -34,7 +34,7 @@ import {
 } from "../../../lib/api";
 import { type AshaWorker } from "./PharmacyMap";
 import MapHeaderLoadingIndicator from "./MapHeaderLoadingIndicator";
-import { useOfflineStatus } from "./useOfflineStatus";
+import { useOfflineStatus } from "@/hooks/useOfflineStatus";
 import { buildCacheKey, saveToCache, loadFromCache } from "./usePharmacyCache";
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -852,7 +852,8 @@ export default function PharmacyMapPage() {
 
                         {/* ── Offline cached data banner ── */}
                         {isShowingCached && (
-                            <div className="animate-in slide-in-from-top-2 absolute top-4 right-16 left-4 z-1000 flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-700 shadow-lg duration-300 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-400"
+                            <div
+                                className="animate-in slide-in-from-top-2 absolute top-4 right-16 left-4 z-1000 flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-700 shadow-lg duration-300 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-400"
                                 role="alert"
                                 aria-live="polite"
                             >
