@@ -1093,16 +1093,18 @@ export default function ScanPage() {
             input?.focus();
         }, 300);
     }, []);
-    const handleBarcodeScan = async (scannedText: string) => {
-        setIsVerifying(true);
-        setApiError(null);
+    const handleBarcodeScan = useCallback(
+        async (scannedText: string) => {
+            setIsVerifying(true);
+            setApiError(null);
 
-        try {
-            await handleVerify(scannedText);
-        } catch (error: any) {
-            setApiError(error.message || "Failed to verify medicine with CDSCO.");
-        } finally {
-            setIsVerifying(false);
+            try {
+                await handleVerify(scannedText);
+            } catch (error: any) {
+                setApiError(error.message || "Failed to verify medicine with CDSCO.");
+            } finally {
+                setIsVerifying(false);
+            }
         },
         [handleVerify]
     );
