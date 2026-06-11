@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Link } from "@/i18n/routing";
 import { useTranslations } from "next-intl";
 import {
@@ -10,7 +10,6 @@ import {
     Trash2,
     X,
     ShieldAlert,
-    Info,
     Activity,
     BookOpen,
     RefreshCw,
@@ -27,7 +26,6 @@ export default function InteractionCheckerPage() {
     const [selectedMedicines, setSelectedMedicines] = useState<string[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
     const [suggestions, setSuggestions] = useState<string[]>([]);
-    const [isFocused, setIsFocused] = useState(false);
 
     const [isLoading, setIsLoading] = useState(false);
     const [interactions, setInteractions] = useState<InteractionResult[]>([]);
@@ -226,7 +224,6 @@ export default function InteractionCheckerPage() {
                                 type="text"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                onFocus={() => setIsFocused(true)}
                                 placeholder={t("searchPlaceholder")}
                                 className="w-full rounded-xl border border-(--color-border-muted) bg-(--color-surface-muted) px-4 py-3 font-semibold text-(--color-text-primary) placeholder-(--color-text-muted) shadow-inner focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                                 onKeyDown={(e) => {
