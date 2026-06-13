@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__ import annotations  # MUST BE LINE 1
 
 import io
 import json
@@ -19,6 +19,7 @@ import soundfile as sf
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from faster_whisper import WhisperModel
 
+from services.fuzzy_matcher import get_phonetic_fuzzy_match  # Imported utility service
 from services.telemetry import (
     get_audio_duration_seconds,
     get_memory_usage_mb,
@@ -108,6 +109,19 @@ def preload_model_if_configured() -> None:
     if should_preload_model_on_startup():
         logger.info("Preloading Whisper model during startup...")
         get_model()
+
+
+def get_medicine_database_list() -> list[str]:
+    """
+    Utility helper to fetch valid medicine masters from backend DB layers.
+    Includes baseline fallback targets for test execution parameters.
+    """
+    try:
+        # TODO: Link to actual database schema or configuration lookup when fully connected to Supabase seeds
+        return ["Paracetamol", "Crocin", "Amoxicillin", "Ibuprofen", "Aspirin", "Metformin"]
+    except Exception as e:
+        logger.warning(f"Failed to query medicine master dataset: {e}")
+        return []
 
 
 @asynccontextmanager
@@ -331,8 +345,24 @@ def _transcribe_audio_bytes(
             len(transcript),
         )
 
+        # Apply Stage 1 & Stage 2 Pipeline Match Corrections
+        medicine_db = get_medicine_database_list()
+        fuzzy_match = get_phonetic_fuzzy_match(transcript, medicine_db)
+
+        corrected_name = transcript
+        suggestion_applied = False
+        message = None
+
+        if fuzzy_match and fuzzy_match["is_corrected"]:
+            corrected_name = fuzzy_match["matched_name"]
+            suggestion_applied = True
+            message = f"Showing results for {corrected_name} — did you mean this?"
+
         return {
             "transcription": transcript,
+            "corrected_name": corrected_name,
+            "suggestion_applied": suggestion_applied,
+            "message": message,
             "language": info.language,
             "language_probability": round(info.language_probability, 3),
             "filename": original_name,
@@ -627,9 +657,29 @@ class StreamingAsrSession:
         self.audio_buffer = self.audio_buffer[samples_to_trim:]
         self.buffer_start_seconds += samples_to_trim / STREAM_SAMPLE_RATE
 
+<<<<<<< HEAD
     def _build_response(self, transcript: str, *, run_ner: bool = False) -> dict:
         base: dict = {
+=======
+    def _build_response(self, transcript: str) -> dict[str, str | float | bool | None]:
+        medicine_db = get_medicine_database_list()
+        fuzzy_match = get_phonetic_fuzzy_match(transcript, medicine_db)
+
+        corrected_name = transcript
+        suggestion_applied = False
+        message = None
+
+        if fuzzy_match and fuzzy_match["is_corrected"]:
+            corrected_name = fuzzy_match["matched_name"]
+            suggestion_applied = True
+            message = f"Showing results for {corrected_name} — did you mean this?"
+
+        return {
+>>>>>>> pr-1840
             "transcript": transcript,
+            "corrected_name": corrected_name,
+            "suggestion_applied": suggestion_applied,
+            "message": message,
             "language": self.last_language,
             "languageConfidence": self.last_language_confidence,
         }
@@ -745,7 +795,14 @@ class StreamingAsrSession:
 
     def finalize(self, *, mime_type: str, language: str | None) -> dict:
         if self.decoder is None:
-            return {"transcript": "", "language": None, "languageConfidence": None}
+            return {
+                "transcript": "",
+                "corrected_name": "",
+                "suggestion_applied": False,
+                "message": None,
+                "language": None,
+                "languageConfidence": None,
+            }
 
         self._append_audio(self.decoder.finish(timeout_seconds=0.15))
         try:
