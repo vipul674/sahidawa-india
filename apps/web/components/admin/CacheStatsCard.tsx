@@ -25,7 +25,7 @@ const YAxis = dynamic(() => import("recharts").then((mod) => mod.YAxis as any), 
 const Tooltip = dynamic(() => import("recharts").then((mod) => mod.Tooltip as any), {
     ssr: false,
 });
-const ResponsiveContainer = dynamic(
+const ResponsiveContainer: any = dynamic(
     () => import("recharts").then((mod) => mod.ResponsiveContainer as any),
     { ssr: false }
 );
