@@ -1,6 +1,5 @@
 import logger from "../utils/logger";
 
-export const CONNECTION_TIMEOUT_MS = 5_000;
 export const RESPONSE_TIMEOUT_MS = 15_000;
 export const MAX_RETRIES = 3;
 export const RETRY_DELAY_MS = 500;
