@@ -163,7 +163,7 @@ export default function Navbar() {
         <>
             {/* ── Top Navigation ── */}
             <header className="sticky top-0 z-[100] w-full border-b border-white/30 bg-white/60 shadow-sm shadow-black/5 backdrop-blur-md dark:border-white/10 dark:bg-slate-900/60">
-                <div className="container mx-auto flex h-16 items-center justify-between gap-2 overflow-hidden px-2 sm:gap-3 sm:px-4 md:px-6">
+                <div className="container mx-auto flex h-16 items-center justify-between gap-2 px-2 sm:gap-3 sm:px-4 md:px-6">
                     {/* Left — Logo & Brand Title */}
                     <div className="flex min-w-0 shrink-0 items-center">
                         <Link href="/" className="flex min-w-0 items-center gap-1.5 sm:gap-2">
