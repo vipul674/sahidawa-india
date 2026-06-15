@@ -3,6 +3,11 @@ import { z } from "zod";
 import { supabase } from "../db/client";
 import { batchLimiter } from "../middleware/rateLimit";
 import logger from "../utils/logger";
+import {
+    validateReport,
+    anonymizeIp,
+    computeReportHash,
+} from "../services/reportValidation.service";
 
 const router = Router();
 
@@ -116,7 +121,11 @@ router.get("/:batchNumber", batchLimiter, async (req: Request, res: Response) =>
             .maybeSingle();
 
         if (batchError) {
-            logger.error({ message: "Batch lookup failed", error: batchError, route: "/api/verify/batch" });
+            logger.error({
+                message: "Batch lookup failed",
+                error: batchError,
+                route: "/api/verify/batch",
+            });
             res.status(500).json({ error: "Database lookup failed" });
             return;
         }
@@ -133,7 +142,11 @@ router.get("/:batchNumber", batchLimiter, async (req: Request, res: Response) =>
                 .maybeSingle();
 
             if (medicineError) {
-                logger.error({ message: "Medicine fallback lookup failed", error: medicineError, route: "/api/verify/batch" });
+                logger.error({
+                    message: "Medicine fallback lookup failed",
+                    error: medicineError,
+                    route: "/api/verify/batch",
+                });
                 res.status(500).json({ error: "Database lookup failed" });
                 return;
             }
@@ -259,7 +272,11 @@ router.get("/:batchNumber", batchLimiter, async (req: Request, res: Response) =>
         });
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "Unknown error";
-        logger.error({ message: "Batch traceability error", error: message, route: "/api/verify/batch" });
+        logger.error({
+            message: "Batch traceability error",
+            error: message,
+            route: "/api/verify/batch",
+        });
         res.status(500).json({ error: "Internal server error" });
     }
 });
@@ -316,7 +333,29 @@ router.post("/report", batchLimiter, async (req: Request, res: Response) => {
     }
 
     const { batchNumber, description, city, state, pincode, pharmacyName } = parsed.data;
+    const hashedIp = anonymizeIp(req.ip);
 
+    const reportPayload = {
+        medicineName: batchNumber,
+        manufacturer: "",
+        description,
+        pharmacyName: pharmacyName ?? "",
+        address: "",
+        city: city ?? "",
+        state: state ?? "",
+        pincode: pincode ?? "",
+        district: city ?? "",
+    };
+
+    const validation = await validateReport(reportPayload, hashedIp, null);
+
+    if (!validation.passed) {
+        res.status(429).json({
+            error: "Report rejected due to abuse safeguards.",
+            reasons: validation.reasons,
+        });
+        return;
+    }
     try {
         // Use .eq() instead of .ilike() — exact match, no wildcard risk
         let medicine_id: string | null = null;
@@ -340,10 +379,19 @@ router.post("/report", batchLimiter, async (req: Request, res: Response) => {
             pincode: pincode ?? null,
             pharmacy_name: pharmacyName ?? null,
             status: "pending",
+            ip_address: hashedIp ?? null,
+            report_hash: computeReportHash(reportPayload),
+            risk_score: validation.riskScore,
+            is_escalated: validation.riskScore >= 0.6,
+            duplicate_group_id: validation.duplicateGroupId ?? null,
         });
 
         if (error) {
-            logger.error({ message: "Failed to insert batch report", error, route: "/api/verify/batch/report" });
+            logger.error({
+                message: "Failed to insert batch report",
+                error,
+                route: "/api/verify/batch/report",
+            });
             res.status(500).json({ error: "Failed to submit report" });
             return;
         }
@@ -354,7 +402,11 @@ router.post("/report", batchLimiter, async (req: Request, res: Response) => {
         });
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "Unknown error";
-        logger.error({ message: "Batch report error", error: message, route: "/api/verify/batch/report" });
+        logger.error({
+            message: "Batch report error",
+            error: message,
+            route: "/api/verify/batch/report",
+        });
         res.status(500).json({ error: "Internal server error" });
     }
 });
