@@ -18,9 +18,10 @@ import {
     Circle,
     Clock,
     Download,
+    ScanLine,
 } from "lucide-react";
-import { useFormatter, useTranslations } from "next-intl";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useFormatter } from "next-intl";
+import { useId, useMemo, useRef, useState } from "react";
 
 interface ChildTrackerState {
     childName: string;
@@ -90,10 +91,9 @@ export function ChildVaccinationTracker() {
     const dobInputId = useId();
     const todayDateInput = useMemo(() => getTodayDateInput(), []);
     const [tracker, setTracker] = useState<ChildTrackerState>(EMPTY_TRACKER_STATE);
-    const [syncContext, setSyncContext] = useState<SyncContext>({ status: "loading" });
-    const hasUserEditedRef = useRef(false);
-    const profileSyncSignatureRef = useRef<string | null>(null);
-    const cloudCompletedDoseIdsRef = useRef<Set<string>>(new Set());
+    const [isOcrScanning, setIsOcrScanning] = useState(false);
+    const [ocrError, setOcrError] = useState<string | null>(null);
+    const scanInputRef = useRef<HTMLInputElement>(null);
 
     const dobValidation = validateChildDateOfBirth(tracker.dateOfBirth, todayDateInput);
     const schedule = useMemo(
@@ -306,7 +306,58 @@ export function ChildVaccinationTracker() {
             };
         });
     };
+    const handleScanCard = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        e.target.value = "";
+        setIsOcrScanning(true);
+        setOcrError(null);
+        try {
+            const Tesseract = (await import("tesseract.js")).default;
+            const reader = new FileReader();
+            const dataUrl = await new Promise<string>((resolve, reject) => {
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.onerror = () => reject(new Error("Failed to read file"));
+                reader.readAsDataURL(file);
+            });
+            const worker = await Tesseract.createWorker("eng");
+            const { data } = await worker.recognize(dataUrl);
+            await worker.terminate();
+            const text = data.text;
 
+            // Parse DOB: look for DD/MM/YYYY or DD-MM-YYYY patterns
+            const dobMatch = text.match(/\b(\d{2})[\/\-](\d{2})[\/\-](\d{4})\b/);
+            if (dobMatch) {
+                const isoDate = `${dobMatch[3]}-${dobMatch[2]}-${dobMatch[1]}`;
+                handleDateOfBirthChange(isoDate);
+            }
+
+            // Match vaccine names against schedule
+            const textUpper = text.toUpperCase();
+            const matched = NATIONAL_IMMUNIZATION_SCHEDULE.filter((item) =>
+                textUpper.includes(item.vaccineName.toUpperCase())
+            ).map((item) => item.id);
+
+            if (matched.length > 0) {
+                setTracker((current) => ({
+                    ...current,
+                    completedDoseIds: Array.from(
+                        new Set([...current.completedDoseIds, ...matched])
+                    ).filter((id) => VALID_DOSE_IDS.has(id)),
+                }));
+            }
+
+            if (!dobMatch && matched.length === 0) {
+                setOcrError(
+                    "Could not extract vaccination data from this image. Please try a clearer photo."
+                );
+            }
+        } catch {
+            setOcrError("Failed to scan image. Please try again.");
+        } finally {
+            setIsOcrScanning(false);
+        }
+    };
     const downloadCalendarReminders = () => {
         if (!schedule.length) return;
 
@@ -341,6 +392,22 @@ export function ChildVaccinationTracker() {
                     </p>
                 </div>
 
+                <input
+                    ref={scanInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleScanCard}
+                />
+                <button
+                    type="button"
+                    onClick={() => scanInputRef.current?.click()}
+                    disabled={isOcrScanning}
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-emerald-600 px-4 py-2 text-sm font-semibold text-emerald-700 shadow-sm transition-colors hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-emerald-300 dark:hover:bg-emerald-950/30"
+                >
+                    <ScanLine size={16} aria-hidden="true" />
+                    {isOcrScanning ? "Scanning..." : "Autofill via Scan"}
+                </button>
                 <button
                     type="button"
                     onClick={downloadCalendarReminders}
@@ -402,6 +469,15 @@ export function ChildVaccinationTracker() {
                     <p className="flex items-start gap-2">
                         <AlertCircle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
                         <span>{validationMessage}</span>
+                    </p>
+                </div>
+            )}
+
+            {ocrError && (
+                <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-100">
+                    <p className="flex items-start gap-2">
+                        <AlertCircle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+                        <span>{ocrError}</span>
                     </p>
                 </div>
             )}
