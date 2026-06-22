@@ -94,3 +94,25 @@ export const scanQueryLimiter = rateLimit({
         });
     },
 });
+
+// ── Interaction check limiter ──────────────────────────────────────────────
+// POST /interactions/check accepts up to 20 medicines, generating up to 190
+// DB queries per request. Throttle to prevent DoS via batch interaction checks.
+export const interactionCheckLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => {
+        return (
+            req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
+            req.socket.remoteAddress ||
+            "unknown"
+        );
+    },
+    handler: (_req, res) => {
+        res.status(429).json({
+            error: "Too many interaction check requests. Please try again later.",
+        });
+    },
+});

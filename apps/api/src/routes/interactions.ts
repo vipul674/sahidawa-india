@@ -4,6 +4,7 @@ import { supabase, dbConfig } from "../db/client";
 import logger from "../utils/logger";
 import { escapeIlike } from "../utils/db";
 import { escapePostgrest } from "../utils/db";
+import { interactionCheckLimiter } from "../middleware/rateLimit";
 
 const router = Router();
 
@@ -440,7 +441,7 @@ async function resolveToGeneric(input: string): Promise<{ input: string; generic
  *                       source:
  *                         type: string
  */
-router.post("/check", async (req: Request, res: Response) => {
+router.post("/check", interactionCheckLimiter, async (req: Request, res: Response) => {
     const parsed = checkSchema.safeParse(req.body);
 
     if (!parsed.success) {
