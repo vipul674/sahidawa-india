@@ -1,4 +1,5 @@
 import { Router, Request, Response } from "express";
+import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
 import {
     generateOTP,
     verifyOTP,
@@ -51,14 +52,9 @@ router.post("/verify-otp", async (req: Request, res: Response): Promise<void> =>
 
 // GET /api/v1/abha/prescriptions
 // Fetches prescriptions for the current user from abha_records
-router.get("/prescriptions", async (req: Request, res: Response): Promise<void> => {
+router.get("/prescriptions", requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
-        const userId = req.headers["x-user-id"] as string;
-
-        if (!userId) {
-            res.status(401).json({ error: "User authentication required" });
-            return;
-        }
+        const userId = req.user.id;
 
         const result = await getPrescriptions(userId);
         res.status(200).json(result);
@@ -71,14 +67,9 @@ router.get("/prescriptions", async (req: Request, res: Response): Promise<void> 
 
 // POST /api/v1/abha/upload-verification
 // Uploads a medicine verification result to abha_records for the current user
-router.post("/upload-verification", async (req: Request, res: Response): Promise<void> => {
+router.post("/upload-verification", requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
-        const userId = req.headers["x-user-id"] as string;
-
-        if (!userId) {
-            res.status(401).json({ error: "User authentication required" });
-            return;
-        }
+        const userId = req.user.id;
 
         const { medicineId, verificationResult, scannedAt } = req.body;
 
@@ -105,14 +96,9 @@ router.post("/upload-verification", async (req: Request, res: Response): Promise
 
 // DELETE /api/v1/abha/unlink
 // Soft-deletes the ABHA link for the current user by setting is_active to false
-router.delete("/unlink", async (req: Request, res: Response): Promise<void> => {
+router.delete("/unlink", requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
-        const userId = req.headers["x-user-id"] as string;
-
-        if (!userId) {
-            res.status(401).json({ error: "User authentication required" });
-            return;
-        }
+        const userId = req.user.id;
 
         const result = await unlinkABHA(userId);
         res.status(200).json(result);
