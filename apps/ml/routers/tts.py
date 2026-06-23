@@ -139,9 +139,9 @@ class TTSResponse(BaseModel):
     character_count: int
 
 
-def get_cache_key(text: str, language_code: str) -> str:
-    """Generate cache key from text and language"""
-    combined = f"{text}:{language_code}"
+def get_cache_key(text: str, language_code: str, gender: str) -> str:
+    """Generate cache key from text, language, and gender"""
+    combined = f"{text}:{language_code}:{gender}"
     return hashlib.md5(combined.encode()).hexdigest()
 
 
@@ -261,7 +261,7 @@ async def generate_tts(request: TTSRequest):
     - cached: Whether the result came from cache
     """
 
-    cache_key = get_cache_key(request.text, request.language_code)
+    cache_key = get_cache_key(request.text, request.language_code, request.gender)
     cache_file = CACHE_DIR / f"{cache_key}.mp3"
 
     # Check cache first

@@ -673,15 +673,18 @@ router.post("/match", scanQueryLimiter, async (req: Request, res: Response) => {
                 .split(/\s+/)
                 .filter((w: string) => w.length > 2);
             if (words.length > 1) {
-                let fallbackQuery = supabase.from("medicines").select("brand_name, generic_name");
+                const orConditions = words
+                    .map(
+                        (w: string) =>
+                            `brand_name.ilike.%${escapePostgrest(w)}%,generic_name.ilike.%${escapePostgrest(w)}%`
+                    )
+                    .join(",");
 
-                for (const word of words) {
-                    fallbackQuery = fallbackQuery.or(
-                        `brand_name.ilike.%${escapePostgrest(word)}%,generic_name.ilike.%${escapePostgrest(word)}%`
-                    );
-                }
-
-                const { data: fallback } = await (fallbackQuery as any).limit(3);
+                const { data: fallback } = await supabase
+                    .from("medicines")
+                    .select("brand_name, generic_name")
+                    .or(orConditions)
+                    .limit(3);
                 if (fallback && fallback.length > 0) {
                     const fallbackResult = fallback.map(
                         (m: { brand_name: string | null; generic_name: string }) => ({

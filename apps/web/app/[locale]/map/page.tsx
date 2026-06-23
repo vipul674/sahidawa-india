@@ -462,7 +462,9 @@ export default function PharmacyMapPage() {
 
                 const verified =
                     verifiedResult.status === "fulfilled"
-                        ? verifiedResult.value.map((vp, i) => toVerifiedPharmacy(vp, -(i + 1)))
+                        ? verifiedResult.value.pharmacies.map((vp, i) =>
+                              toVerifiedPharmacy(vp, -(i + 1))
+                          )
                         : [];
                 const osm = osmResult.status === "fulfilled" ? osmResult.value.map(toPharmacy) : [];
                 const asha =

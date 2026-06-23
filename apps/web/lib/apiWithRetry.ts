@@ -1,3 +1,5 @@
+import { toast } from "sonner";
+
 export interface RetryConfig {
     maxRetries?: number;
     initialDelayMs?: number;
@@ -123,6 +125,9 @@ export async function fetchWithRetry(
             const shouldRetry = config.shouldRetry(lastError, attempt);
 
             if (attempt > config.maxRetries || !shouldRetry) {
+                if (typeof window !== "undefined") {
+                    toast.error("Network Request Failed. Please try again.");
+                }
                 if (isTimeout) {
                     throw new Error("Request timed out. Please try again.");
                 }

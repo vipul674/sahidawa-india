@@ -3,7 +3,6 @@ import { z } from "zod";
 import { supabase } from "../db/client";
 import logger from "../utils/logger";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
-import { PharmacyRpcResult, FormattedPharmacy } from "../types/pharmacy.types";
 
 const router = Router();
 
@@ -455,6 +454,14 @@ router.get("/nearest", async (req: Request, res: Response, next: NextFunction) =
  *       Returns pharmacies whose location falls inside the given bounding box.
  *       Uses PostGIS ST_Intersects with ST_MakeEnvelope for efficient spatial
  *       queries with automatic fallback to in-memory filtering.
+ *
+ *       When `since` is provided, only pharmacies created or updated after
+ *       that timestamp are returned (delta sync, #2260). This is intended
+ *       for repeat requests over a bounding box the client has already
+ *       synced — e.g. re-fetching after panning back to a previously seen
+ *       area — to avoid re-downloading unchanged records. Deletions are not
+ *       reported by this endpoint; pharmacies are hard-deleted today and
+ *       there is no tombstone mechanism yet.
  *     tags:
  *       - Pharmacies
  *     parameters:
@@ -494,6 +501,15 @@ router.get("/nearest", async (req: Request, res: Response, next: NextFunction) =
  *           maximum: 180
  *         description: Eastern longitude boundary
  *         example: 77.4
+ *       - in: query
+ *         name: since
+ *         required: false
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: >
+ *           ISO timestamp from a previous response's `syncedAt` field. When
+ *           provided, only pharmacies changed after this time are returned.
  *     responses:
  *       200:
  *         description: List of pharmacies within the bounding box
@@ -507,6 +523,8 @@ router.get("/nearest", async (req: Request, res: Response, next: NextFunction) =
  *                   items:
  *                     type: object
  *                     properties:
+ *                       id:
+ *                         type: string
  *                       name:
  *                         type: string
  *                       address:
@@ -528,6 +546,17 @@ router.get("/nearest", async (req: Request, res: Response, next: NextFunction) =
  *                       state:
  *                         type: string
  *                         nullable: true
+ *                       updated_at:
+ *                         type: string
+ *                         nullable: true
+ *                 syncedAt:
+ *                   type: string
+ *                   description: >
+ *                     Server timestamp to pass back as `since` on the next
+ *                     request to this bounding box.
+ *                 delta:
+ *                   type: boolean
+ *                   description: True if this response only contains changes since `since`.
  *       400:
  *         description: Invalid bounds
  *         content:

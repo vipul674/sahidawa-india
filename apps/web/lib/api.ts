@@ -202,6 +202,7 @@ export type VerifyResult =
       };
 
 export type VerifiedPharmacy = {
+    id?: string;
     name: string;
     address: string;
     lat: number;
@@ -211,6 +212,7 @@ export type VerifiedPharmacy = {
     is_verified: boolean;
     district: string | null;
     state: string | null;
+    updated_at?: string;
 };
 
 export async function fetchVerifiedPharmacies(
@@ -232,23 +234,57 @@ export async function fetchVerifiedPharmacies(
     }
 }
 
+/**
+ * Response shape for fetchVerifiedPharmaciesInBounds.
+ *
+ * `syncedAt` is the server's timestamp for this response — store it (per
+ * bounding-box / region key) and pass it back as `since` on the next call
+ * to the same area to fetch only what changed (delta sync, #2260).
+ *
+ * `delta` is true when the response only contains changes since `since`
+ * (i.e. the caller passed one and the server honoured it). When false, the
+ * `pharmacies` array is the full result set for the bounds — callers should
+ * replace their local cache for that area rather than merge.
+ *
+ * Note: deletions are not reported. Pharmacies are hard-deleted today with
+ * no tombstone mechanism, so a delta response cannot tell you a previously
+ * seen pharmacy was removed. This is a known gap, not an oversight — see
+ * the PR description for #2260.
+ */
+export type PharmaciesInBoundsResult = {
+    pharmacies: VerifiedPharmacy[];
+    syncedAt: string;
+    delta: boolean;
+};
+
 export async function fetchVerifiedPharmaciesInBounds(
     south: number,
     west: number,
     north: number,
     east: number,
+    since?: string,
     signal?: AbortSignal
-): Promise<VerifiedPharmacy[]> {
+): Promise<PharmaciesInBoundsResult> {
+    const fallback: PharmaciesInBoundsResult = {
+        pharmacies: [],
+        syncedAt: new Date().toISOString(),
+        delta: false,
+    };
     try {
-        const res = await fetchWithRetry(
-            `${API_BASE}/api/pharmacies/in-bounds?south=${south}&west=${west}&north=${north}&east=${east}`,
-            { timeout: 8000, signal }
-        );
-        if (!res.ok) return [];
+        let url = `${API_BASE}/api/pharmacies/in-bounds?south=${south}&west=${west}&north=${north}&east=${east}`;
+        if (since) {
+            url += `&since=${encodeURIComponent(since)}`;
+        }
+        const res = await fetchWithRetry(url, { timeout: 8000, signal });
+        if (!res.ok) return fallback;
         const body = await res.json();
-        return body.pharmacies ?? [];
+        return {
+            pharmacies: body.pharmacies ?? [],
+            syncedAt: body.syncedAt ?? fallback.syncedAt,
+            delta: Boolean(body.delta),
+        };
     } catch {
-        return [];
+        return fallback;
     }
 }
 
