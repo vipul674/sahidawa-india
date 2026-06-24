@@ -28,28 +28,6 @@ export class TwilioSMSService implements SMSProvider {
             params.append("From", this.fromNumber);
             params.append("Body", message);
 
-        //     const response = await fetch(endpoint, {
-        //         method: "POST",
-        //         headers: {
-        //             Authorization: `Basic ${credentials}`,
-        //             "Content-Type": "application/x-www-form-urlencoded",
-        //         },
-        //         body: params.toString(),
-        //     });
-
-        //     if (!response.ok) {
-        //         const errText = await response.text();
-        //         logger.error(`Twilio SMS API error: ${response.status} ${errText}`);
-        //         return false;
-        //     }
-
-        //     logger.info(`Twilio SMS sent successfully to ${phone}`);
-        //     return true;
-        // } catch (error) {
-        //     logger.error(`Failed to send SMS to ${phone} via Twilio`, { error });
-        //     return false;
-        // }
-
             const maxRetries = 4;
             let retryDelay = 1000; // Start with 1 second
 
