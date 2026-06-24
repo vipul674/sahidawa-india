@@ -177,7 +177,29 @@ export async function POST(req: Request) {
         }
         const ai = getAiClient();
         const { messages, mode, responseLanguage, locale } = await req.json();
-        const latestMessageText = getLatestMessageText(messages);
+
+        if (!Array.isArray(messages) || messages.length === 0) {
+            return NextResponse.json({ error: "Messages are required" }, { status: 400 });
+        }
+
+        const MAX_MESSAGES = 50;
+        const MAX_MESSAGE_CHARS = 2000;
+        const trimmedMessages = messages.slice(-MAX_MESSAGES);
+
+        for (const msg of trimmedMessages) {
+            const text = msg.text || msg.content || "";
+            if (typeof text !== "string" || text.length > MAX_MESSAGE_CHARS) {
+                const isVoiceTriage =
+                    mode === "voice-triage" && msg === trimmedMessages[trimmedMessages.length - 1];
+                const errorMsg = isVoiceTriage
+                    ? `Transcript exceeds maximum allowed length of ${MAX_MESSAGE_CHARS} characters.`
+                    : `Each message must be under ${MAX_MESSAGE_CHARS} characters.`;
+
+                return NextResponse.json({ error: errorMsg }, { status: 400 });
+            }
+        }
+
+        const latestMessageText = getLatestMessageText(trimmedMessages);
 
         if (!latestMessageText) {
             structuredLog({
@@ -199,7 +221,7 @@ export async function POST(req: Request) {
                     process.env.ML_SERVICE_URL?.trim() ||
                     process.env.NEXT_PUBLIC_ML_SERVICE_URL?.trim() ||
                     "http://localhost:8000";
-                const formattedMessages = (messages || []).map((m: any) => ({
+                const formattedMessages = trimmedMessages.map((m: any) => ({
                     role:
                         m.role === ChatRoles.ASSISTANT || m.role === ChatRoles.MODEL
                             ? ChatRoles.ASSISTANT
@@ -283,7 +305,7 @@ export async function POST(req: Request) {
             });
         }
 
-        const formattedContents = mapMessagesToGeminiContents(messages || []);
+        const formattedContents = mapMessagesToGeminiContents(trimmedMessages);
 
         const supportedLocales = ["en", "gu", "bn", "te", "ta", "mr", "ur", "kn", "pa", "or", "hi"];
         const finalLocale = supportedLocales.includes(locale) ? locale : "en";
@@ -348,7 +370,7 @@ export async function POST(req: Request) {
                             input_tokens: usageMetadata?.promptTokenCount,
                             output_tokens: usageMetadata?.candidatesTokenCount,
                         },
-                        meta: { mode: "chat", messageCount: (messages || []).length },
+                        meta: { mode: "chat", messageCount: trimmedMessages.length },
                     });
                     controller.close();
                 } catch (streamError) {
@@ -362,7 +384,7 @@ export async function POST(req: Request) {
                             code: 500,
                             stack: streamError instanceof Error ? streamError.stack : undefined,
                         },
-                        meta: { mode: "chat", messageCount: (messages || []).length },
+                        meta: { mode: "chat", messageCount: trimmedMessages.length },
                     });
                     controller.error(streamError);
                 }
