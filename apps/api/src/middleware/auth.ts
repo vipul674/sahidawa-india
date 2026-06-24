@@ -18,11 +18,8 @@ export interface AuthenticatedRequest extends Request {
 
 type SupabaseAuthClient = Pick<SupabaseClient, "auth">;
 
-const getUserRole = (user: User): AuthRole => {
-    // Read role from app_metadata (server-controlled, cannot be set by user).
-    // app_metadata takes precedence; user_metadata is accepted as a fallback
-    // only for legacy compatibility during the transition period.
-    const metadataRole = user.app_metadata?.role || user.user_metadata?.role;
+export const getUserRole = (user: User): AuthRole => {
+    const metadataRole = user.app_metadata?.role;
     if (metadataRole === "admin") return "admin";
     if (metadataRole === "moderator") return "moderator";
     return "user";

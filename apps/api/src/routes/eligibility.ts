@@ -155,6 +155,39 @@ router.post("/", async (req: Request, res: Response): Promise<void> => {
                     link: "https://sha.kerala.gov.in/",
                 });
             }
+        } else if (normalizedState.includes("west bengal")) {
+            eligibleSchemes.push({
+                name: "Swasthya Sathi",
+                description:
+                    "Universal healthcare scheme of West Bengal offering cashless healthcare to state residents.",
+                coverage:
+                    "Comprehensive coverage of up to ₹5 Lakh per family per year, covering secondary and tertiary care with no family size cap.",
+                how_to_apply:
+                    "Register at any Common Service Center (CSC), Sewa Kendra, or directly through the official scheme portal. Bring your Aadhaar Card and family details to receive your Swasthya Sathi Smart Card.",
+                link: "https://swasthyasathi.gov.in/",
+            });
+        } else if (normalizedState.includes("punjab")) {
+            eligibleSchemes.push({
+                name: "Mukh Mantri Sehat Yojana",
+                description:
+                    "Universal cashless health insurance scheme of Punjab covering all residents regardless of income.",
+                coverage:
+                    "Cashless treatment of up to ₹10 Lakh per family per year at government and empaneled private hospitals.",
+                how_to_apply:
+                    "Visit your nearest Sewa Kendra or Common Service Center with Aadhaar Card and Voter ID, or register via the Ayushman App. You will receive a Mukh Mantri Sehat Card for cashless treatment.",
+                link: "https://sha.punjab.gov.in/",
+            });
+        } else if (normalizedState.includes("rajasthan")) {
+            eligibleSchemes.push({
+                name: "Mukhyamantri Ayushman Arogya Yojana (MAAY)",
+                description:
+                    "Rajasthan government's flagship health insurance scheme (formerly Chiranjeevi Yojana) providing cashless treatment for all residents.",
+                coverage:
+                    "Cashless treatment of up to ₹25 Lakh per family per year, including pre and post-hospitalization expenses.",
+                how_to_apply:
+                    "Register via the Rajasthan SSO portal or visit your nearest e-Mitra center with your Jan Aadhaar or Aadhaar card. Most BPL, NFSA, and SECC families are enrolled automatically.",
+                link: "https://maayojana.rajasthan.gov.in/",
+            });
         } else if (
             normalizedState.includes("andhra pradesh") ||
             normalizedState.includes("telangana")

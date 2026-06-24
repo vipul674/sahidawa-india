@@ -2,7 +2,9 @@ import { Router, Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { supabase } from "../db/client";
 import logger from "../utils/logger";
+import { redisClient } from "../utils/redis";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
+import { FormattedPharmacy, PharmacyRpcResult } from "../types/pharmacy.types";
 
 const router = Router();
 
@@ -379,6 +381,23 @@ router.get("/nearest", async (req: Request, res: Response, next: NextFunction) =
 
         const { lat, lng, radius } = result.data;
 
+        const roundedLat = lat.toFixed(3);
+        const roundedLng = lng.toFixed(3);
+
+        const cacheKey = `pharmacies:nearest:${roundedLat}:${roundedLng}:${radius}`;
+
+        try {
+            if (redisClient.isOpen) {
+                const cached = await redisClient.get(cacheKey);
+
+                if (cached) {
+                    return res.json(JSON.parse(cached));
+                }
+            }
+        } catch (error) {
+            logger.warn("Redis cache read failed", { error });
+        }
+
         // Primary path: PostGIS RPC with server-side radius filtering
         const { data: rpcData, error: rpcError } = await supabase.rpc("get_nearest_pharmacies", {
             query_lat: lat,
@@ -401,7 +420,17 @@ router.get("/nearest", async (req: Request, res: Response, next: NextFunction) =
                 }))
                 .slice(0, MAX_RESULTS);
 
-            return res.json({ pharmacies });
+            const responseData = { pharmacies };
+
+            try {
+                if (redisClient.isOpen) {
+                    await redisClient.set(cacheKey, JSON.stringify(responseData), { EX: 3600 });
+                }
+            } catch (error) {
+                logger.warn("Redis cache write failed", { error });
+            }
+
+            return res.json(responseData);
         }
 
         // Fallback path: Haversine calculation in JavaScript
@@ -439,7 +468,17 @@ router.get("/nearest", async (req: Request, res: Response, next: NextFunction) =
             .slice(0, MAX_RESULTS)
             .map(({ rawDistance, ...rest }: PharmacyWithRawDistance): FormattedPharmacy => rest);
 
-        res.json({ pharmacies });
+        const responseData = { pharmacies };
+
+        try {
+            if (redisClient.isOpen) {
+                await redisClient.set(cacheKey, JSON.stringify(responseData), { EX: 3600 });
+            }
+        } catch (error) {
+            logger.warn("Redis cache write failed", { error });
+        }
+
+        res.json(responseData);
     } catch (err) {
         next(err);
     }
@@ -719,8 +758,8 @@ router.post(
 
                 const validationResult = inventoryRowSchema.safeParse(rowData);
                 if (!validationResult.success) {
-                    const errorMessage = validationResult.error.errors
-                        .map((e) => e.message)
+                    const errorMessage = validationResult.error.issues
+                        .map((e: { message: string }) => e.message)
                         .join(", ");
                     failedRows.push({ row: i + 1, reason: errorMessage });
                     continue;

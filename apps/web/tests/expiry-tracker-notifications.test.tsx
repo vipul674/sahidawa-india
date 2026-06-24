@@ -58,6 +58,12 @@ function defineNotificationMock(permission: NotificationPermission) {
         configurable: true,
         value: notification,
     });
+    Object.defineProperty(navigator, "serviceWorker", {
+        configurable: true,
+        value: {
+            getRegistration: jest.fn().mockResolvedValue(null),
+        },
+    });
 
     return requestPermission;
 }
@@ -70,6 +76,7 @@ async function waitForInitialLoad() {
 
 describe("ExpiryTracker notification permission", () => {
     const originalNotification = window.Notification;
+    const originalServiceWorker = navigator.serviceWorker;
 
     beforeEach(() => {
         localStorage.clear();
@@ -85,6 +92,10 @@ describe("ExpiryTracker notification permission", () => {
             configurable: true,
             value: originalNotification,
         });
+        Object.defineProperty(navigator, "serviceWorker", {
+            configurable: true,
+            value: originalServiceWorker,
+        });
     });
 
     it("shows a success toast when notification permission is granted", async () => {
@@ -94,7 +105,7 @@ describe("ExpiryTracker notification permission", () => {
         render(<ExpiryTrackerPage />);
         await waitForInitialLoad();
 
-        fireEvent.click(screen.getByRole("button", { name: /enable notifications/i }));
+        fireEvent.click(await screen.findByRole("button", { name: /enable notifications/i }));
 
         await waitFor(() => {
             expect(mockedToast.success).toHaveBeenCalledWith(
@@ -112,7 +123,7 @@ describe("ExpiryTracker notification permission", () => {
         render(<ExpiryTrackerPage />);
         await waitForInitialLoad();
 
-        fireEvent.click(screen.getByRole("button", { name: /enable notifications/i }));
+        fireEvent.click(await screen.findByRole("button", { name: /enable notifications/i }));
 
         await waitFor(() => {
             expect(mockedToast.error).toHaveBeenCalledWith(

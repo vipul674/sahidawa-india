@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
     WifiOff,
@@ -22,9 +23,22 @@ import { PageHeader } from "../components/PageHeader";
  */
 export default function OfflinePage() {
     const t = useTranslations("offline");
+    const params = useParams<{ locale?: string }>();
     const [isRetrying, setIsRetrying] = useState(false);
     const [retryCount, setRetryCount] = useState(0);
     const [showReconnected, setShowReconnected] = useState(false);
+
+    // Resolve the active locale, preferring the route param (works with the
+    // [locale] dynamic segment) and falling back to the first path segment
+    // if params is ever unavailable. Falls back to "/" only as a last resort,
+    // so we never lose the user's locale on reconnect (see #2102).
+    const getLocalizedHomeHref = useCallback(() => {
+        const localeFromParams = params?.locale;
+        const localeFromPath =
+            typeof window !== "undefined" ? window.location.pathname.split("/")[1] : undefined;
+        const locale = localeFromParams || localeFromPath;
+        return locale ? `/${locale}` : "/";
+    }, [params]);
     const [history, setHistory] = useState<ScanResult[]>([]);
     // Sync initial state from navigator.onLine after mount
     useEffect(() => {
@@ -34,7 +48,7 @@ export default function OfflinePage() {
             setShowReconnected(true);
             // Auto-redirect after a short confirmation delay
             setTimeout(() => {
-                window.location.href = "/";
+                window.location.href = getLocalizedHomeHref();
             }, 1800);
         };
 
@@ -49,7 +63,7 @@ export default function OfflinePage() {
             window.removeEventListener("online", handleOnline);
             window.removeEventListener("offline", handleOffline);
         };
-    }, []);
+    }, [getLocalizedHomeHref]);
 
     const handleRetry = useCallback(() => {
         setIsRetrying(true);
@@ -134,7 +148,7 @@ export default function OfflinePage() {
 
                     <a
                         id="offline-home-btn"
-                        href="/"
+                        href={getLocalizedHomeHref()}
                         className="block w-full rounded-xl border border-slate-700 bg-slate-800 px-6 py-3.5 font-semibold text-slate-200 transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-600 hover:bg-slate-700"
                     >
                         <span className="inline-flex items-center justify-center gap-2.5">

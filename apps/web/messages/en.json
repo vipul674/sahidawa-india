@@ -565,6 +565,8 @@
         "filterExpired": "Expired",
         "filterExpiringSoon": "Expiring Soon",
         "filterSafe": "Safe",
+        "print": "Print",
+        "exportPDF": "Export PDF",
         "exportBackup": "Export Backup",
         "importBackup": "Import Backup",
         "importError": "Invalid backup file. Please upload a valid JSON backup.",
@@ -981,7 +983,8 @@
         "clinicalRecommendation": "Clinical Recommendation:",
         "mechanism": "Mechanism:",
         "source": "Source:",
-        "errorMessage": "Failed to complete interaction check. Please try again."
+        "errorMessage": "Failed to complete interaction check. Please try again.",
+        "offlineBadge": "Offline Result — Connect to internet for latest data"
     },
     "ScanHistory": {
         "export_modal_title": "Export Scan History",

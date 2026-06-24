@@ -7,7 +7,7 @@
  * Design: SahiDawa modern aesthetic — emerald accents, deep navy header, rounded corners
  */
 import { handleApiError } from "@/lib/apiErrorHandler";
-import React, { useState, useEffect, useId } from "react";
+import React, { useState, useEffect, useId, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { useForm, FormProvider, useFormContext } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -827,6 +827,17 @@ export default function ReportWizard() {
     const submitErrorId = useId();
     const searchParams = useSearchParams();
 
+    const supabase = useMemo(() => {
+        if (typeof window !== "undefined") {
+            try {
+                return createBrowserClient(getSupabaseUrl(), getSupabaseAnonKey());
+            } catch {
+                return null;
+            }
+        }
+        return null;
+    }, []);
+
     const methods = useForm<FormValues>({
         resolver: zodResolver(schema),
         defaultValues: EMPTY,
@@ -911,9 +922,8 @@ export default function ReportWizard() {
         setSubmitErr(null);
 
         let token: string | undefined = undefined;
-        if (typeof window !== "undefined") {
+        if (supabase) {
             try {
-                const supabase = createBrowserClient(getSupabaseUrl(), getSupabaseAnonKey());
                 const {
                     data: { session },
                 } = await supabase.auth.getSession();

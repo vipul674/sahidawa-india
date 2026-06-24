@@ -117,9 +117,15 @@ export default function ScanPage() {
     const handleSaveToABHA = async () => {
         if (!verifyResult?.verified) return;
 
+        const medicineId = verifyResult.medicine?.id;
+        if (!medicineId) {
+            toast.error("Medicine ID is missing. Cannot save to ABHA.");
+            return;
+        }
+
         try {
             await uploadABHAVerification({
-                medicineId: "demo-medicine",
+                medicineId,
                 verificationResult: verifyResult.medicine.is_counterfeit_alert
                     ? "counterfeit"
                     : "verified",

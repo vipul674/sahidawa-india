@@ -167,7 +167,12 @@ export async function geocodePincode(
         const lat = parseFloat(entry.lat);
         const lng = parseFloat(entry.lon);
         if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-        const city = entry.address?.city ?? entry.address?.town ?? entry.address?.village ?? entry.address?.municipality ?? entry.address?.county;
+        const city =
+            entry.address?.city ??
+            entry.address?.town ??
+            entry.address?.village ??
+            entry.address?.municipality ??
+            entry.address?.county;
         const state = entry.address?.state;
         return { latitude: lat, longitude: lng, city, state };
     } catch (error) {
@@ -232,6 +237,8 @@ export type VerifiedPharmacy = {
     district: string | null;
     state: string | null;
     updated_at?: string;
+    is_active?: boolean;
+    deleted_at?: string | null;
 };
 
 export async function fetchVerifiedPharmacies(
@@ -274,6 +281,7 @@ export type PharmaciesInBoundsResult = {
     pharmacies: VerifiedPharmacy[];
     syncedAt: string;
     delta: boolean;
+    fromNetwork: boolean;
 };
 
 export async function fetchVerifiedPharmaciesInBounds(
@@ -281,18 +289,25 @@ export async function fetchVerifiedPharmaciesInBounds(
     west: number,
     north: number,
     east: number,
-    since?: string,
+    since?: string | number | Date,
     signal?: AbortSignal
 ): Promise<PharmaciesInBoundsResult> {
     const fallback: PharmaciesInBoundsResult = {
         pharmacies: [],
         syncedAt: new Date().toISOString(),
         delta: false,
+        fromNetwork: false,
     };
     try {
         let url = `${API_BASE}/api/pharmacies/in-bounds?south=${south}&west=${west}&north=${north}&east=${east}`;
         if (since) {
-            url += `&since=${encodeURIComponent(since)}`;
+            const sinceParam =
+                since instanceof Date
+                    ? since.toISOString()
+                    : typeof since === "number"
+                      ? new Date(since).toISOString()
+                      : since;
+            url += `&since=${encodeURIComponent(sinceParam)}`;
         }
         const res = await fetchWithRetry(url, { timeout: 8000, signal });
         if (!res.ok) return fallback;
@@ -301,6 +316,7 @@ export async function fetchVerifiedPharmaciesInBounds(
             pharmacies: body.pharmacies ?? [],
             syncedAt: body.syncedAt ?? fallback.syncedAt,
             delta: Boolean(body.delta),
+            fromNetwork: true,
         };
     } catch {
         return fallback;
