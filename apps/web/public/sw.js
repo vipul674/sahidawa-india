@@ -432,6 +432,104 @@ self.addEventListener("notificationclick", (event) => {
 });
 
 // ---------------------------------------------------------------------------
+// PERIODIC SYNC — check for medicine expiries in the background
+// ---------------------------------------------------------------------------
+self.addEventListener("periodicsync", (event) => {
+    if (event.tag === "check-expiry") {
+        event.waitUntil(checkExpiryAndNotify());
+    }
+});
+
+function checkExpiryAndNotify() {
+    return new Promise((resolve) => {
+        const request = indexedDB.open("sahidawa-expiry-db", 1);
+        request.onerror = () => resolve();
+        request.onsuccess = (event) => {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains("medicines")) {
+                db.close();
+                return resolve();
+            }
+
+            const transaction = db.transaction("medicines", "readwrite");
+            const store = transaction.objectStore("medicines");
+            const getAllRequest = store.getAll();
+
+            getAllRequest.onerror = () => resolve();
+            getAllRequest.onsuccess = () => {
+                const medicines = getAllRequest.result || [];
+                const now = new Date();
+                const promises = [];
+
+                for (const med of medicines) {
+                    const expiry = new Date(med.expiryDate);
+                    expiry.setHours(0, 0, 0, 0);
+
+                    const sevenDaysBefore = new Date(expiry);
+                    sevenDaysBefore.setDate(expiry.getDate() - 7);
+                    sevenDaysBefore.setHours(9, 0, 0, 0);
+
+                    const oneDayBefore = new Date(expiry);
+                    oneDayBefore.setDate(expiry.getDate() - 1);
+                    oneDayBefore.setHours(9, 0, 0, 0);
+
+                    const notified7Days = med.notified7Days || false;
+                    const notified1Day = med.notified1Day || false;
+                    let updated = false;
+
+                    if (now >= sevenDaysBefore && now < oneDayBefore && !notified7Days) {
+                        promises.push(
+                            self.registration.showNotification(
+                                `Medicine Expiring Soon: ${med.name}`,
+                                {
+                                    body: `Your tracked medicine ${med.name} will expire in 7 days (on ${expiry.toLocaleDateString()}).`,
+                                    tag: `${med.id}-7days`,
+                                    icon: "/icons/icon-192.png",
+                                    badge: "/icons/icon-192.png",
+                                    data: { url: "/en/expiry-tracker", medicineId: med.id },
+                                }
+                            )
+                        );
+                        med.notified7Days = true;
+                        updated = true;
+                    }
+
+                    if (now >= oneDayBefore && !notified1Day) {
+                        const expiryCutoff = new Date(expiry);
+                        expiryCutoff.setDate(expiry.getDate() + 7);
+                        if (now <= expiryCutoff) {
+                            promises.push(
+                                self.registration.showNotification(
+                                    `Medicine Expiring Tomorrow: ${med.name}`,
+                                    {
+                                        body: `Your tracked medicine ${med.name} will expire tomorrow (on ${expiry.toLocaleDateString()}).`,
+                                        tag: `${med.id}-1day`,
+                                        icon: "/icons/icon-192.png",
+                                        badge: "/icons/icon-192.png",
+                                        data: { url: "/en/expiry-tracker", medicineId: med.id },
+                                    }
+                                )
+                            );
+                            med.notified1Day = true;
+                            updated = true;
+                        }
+                    }
+
+                    if (updated) {
+                        store.put(med);
+                    }
+                }
+
+                Promise.all(promises).finally(() => {
+                    db.close();
+                    resolve();
+                });
+            };
+        };
+    });
+}
+
+// ---------------------------------------------------------------------------
 // MESSAGE — allow pages to communicate with the SW (e.g. skip waiting)
 // ---------------------------------------------------------------------------
 self.addEventListener("message", (event) => {

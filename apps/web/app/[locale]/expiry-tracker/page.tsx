@@ -12,6 +12,12 @@ import { ExpirySummary } from "./components/ExpirySummary";
 import { ExpiryTable } from "./components/ExpiryTable";
 import { formatDateInputValue, isValidDateString, parseLocalDate } from "./components/dateUtils";
 import type { FilterStatus, Medicine, SortOption } from "./components/types";
+import {
+    syncMedicinesToIndexedDB,
+    requestNotificationPermission as requestNotificationPermissionHelper,
+    checkAndTriggerLocalNotifications as checkAndTriggerNotificationsHelper,
+    cancelNotificationsForMedicine,
+} from "@/lib/expiry-notifications";
 
 export default function ExpiryTrackerPage() {
     const t = useTranslations("ExpiryTracker");
@@ -34,7 +40,6 @@ export default function ExpiryTrackerPage() {
 
     const [isScannerOpen, setIsScannerOpen] = useState(false);
     const [isVerifying, setIsVerifying] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
     const [apiError, setApiError] = useState<string | null>(null);
     const [notificationPermission, setNotificationPermission] = useState<string>("default");
     useEffect(() => {
@@ -43,228 +48,34 @@ export default function ExpiryTrackerPage() {
         }
     }, []);
 
+    // Sync medicines to IndexedDB whenever the list updates
+    useEffect(() => {
+        if (isLoaded) {
+            syncMedicinesToIndexedDB(medicines);
+        }
+    }, [medicines, isLoaded]);
+
     const requestNotificationPermission = async () => {
-        if (typeof window === "undefined" || !("Notification" in window)) {
-            return "unsupported";
+        const permission = await requestNotificationPermissionHelper();
+        setNotificationPermission(permission);
+        if (permission === "granted") {
+            toast.success("Notifications enabled! You will be alerted before medicines expire.");
+            await syncMedicinesToIndexedDB(medicines);
+            await checkAndTriggerNotificationsHelper(medicines);
+        } else if (permission === "denied") {
+            toast.error(
+                "Notification permission denied. Please enable alerts in your browser settings."
+            );
         }
-        try {
-            const permission = await Notification.requestPermission();
-            setNotificationPermission(permission);
-            if (permission === "granted") {
-                toast.success(
-                    "Notifications enabled! You will be alerted before medicines expire."
-                );
-                medicines.forEach((med) => {
-                    scheduleNotificationsForMedicine(med);
-                });
-            } else if (permission === "denied") {
-                toast.error(
-                    "Notification permission denied. Please enable alerts in your browser settings."
-                );
-            }
-            return permission;
-        } catch (error) {
-            console.error("Error requesting notification permission:", error);
-            return Notification.permission;
-        }
-    };
-
-    const getNotificationTargets = (expiryDateStr: string) => {
-        const expiryDate = parseLocalDate(expiryDateStr);
-
-        const sevenDaysBefore = new Date(expiryDate);
-        sevenDaysBefore.setDate(expiryDate.getDate() - 7);
-        sevenDaysBefore.setHours(9, 0, 0, 0);
-
-        const oneDayBefore = new Date(expiryDate);
-        oneDayBefore.setDate(expiryDate.getDate() - 1);
-        oneDayBefore.setHours(9, 0, 0, 0);
-
-        return { sevenDaysBefore, oneDayBefore };
+        return permission;
     };
 
     const scheduleNotificationsForMedicine = async (medicine: Medicine) => {
-        if (
-            typeof window === "undefined" ||
-            !("Notification" in window) ||
-            Notification.permission !== "granted"
-        ) {
-            return;
-        }
-
-        const { sevenDaysBefore, oneDayBefore } = getNotificationTargets(medicine.expiryDate);
-        const now = new Date();
-
-        const registration = await navigator.serviceWorker.getRegistration();
-        if (!registration) return;
-
-        const isTimestampTriggerSupported =
-            typeof window !== "undefined" && "TimestampTrigger" in window;
-
-        if (sevenDaysBefore > now) {
-            const title = `Medicine Expiring Soon: ${medicine.name}`;
-            const body = `Your tracked medicine ${medicine.name} will expire in 7 days (on ${new Date(medicine.expiryDate).toLocaleDateString()}).`;
-            const tag = `${medicine.id}-7days`;
-
-            if (isTimestampTriggerSupported) {
-                try {
-                    // @ts-expect-error: TimestampTrigger is experimental
-                    const trigger = new TimestampTrigger(sevenDaysBefore.getTime());
-                    await registration.showNotification(title, {
-                        body,
-                        tag,
-                        icon: "/icons/icon-192.png",
-                        badge: "/icons/icon-192.png",
-                        // @ts-expect-error: showTrigger is experimental
-                        showTrigger: trigger,
-                        data: { url: window.location.pathname, medicineId: medicine.id },
-                    });
-                } catch (err) {
-                    console.error("Failed to schedule with TimestampTrigger:", err);
-                }
-            }
-        }
-
-        if (oneDayBefore > now) {
-            const title = `Medicine Expiring Tomorrow: ${medicine.name}`;
-            const body = `Your tracked medicine ${medicine.name} will expire tomorrow (on ${new Date(medicine.expiryDate).toLocaleDateString()}).`;
-            const tag = `${medicine.id}-1day`;
-
-            if (isTimestampTriggerSupported) {
-                try {
-                    // @ts-expect-error: TimestampTrigger is experimental
-                    const trigger = new TimestampTrigger(oneDayBefore.getTime());
-                    await registration.showNotification(title, {
-                        body,
-                        tag,
-                        icon: "/icons/icon-192.png",
-                        badge: "/icons/icon-192.png",
-                        // @ts-expect-error: showTrigger is experimental
-                        showTrigger: trigger,
-                        data: { url: window.location.pathname, medicineId: medicine.id },
-                    });
-                } catch (err) {
-                    console.error("Failed to schedule with TimestampTrigger:", err);
-                }
-            }
-        }
-    };
-
-    const cancelNotificationsForMedicine = async (id: string) => {
-        try {
-            const savedShown = localStorage.getItem("sahidawa_shown_notifications");
-            if (savedShown) {
-                const shownMap = JSON.parse(savedShown);
-                if (shownMap[id]) {
-                    delete shownMap[id];
-                    localStorage.setItem("sahidawa_shown_notifications", JSON.stringify(shownMap));
-                }
-            }
-        } catch (e) {
-            console.error("Failed to update shown notifications map:", e);
-        }
-
-        if (typeof window !== "undefined" && "Notification" in window) {
-            const registration = await navigator.serviceWorker.getRegistration();
-            if (registration) {
-                try {
-                    const notifications = await (registration as any).getNotifications({
-                        includeTriggered: true,
-                    });
-                    const tagsToCancel = [`${id}-7days`, `${id}-1day`];
-                    notifications.forEach((n: any) => {
-                        if (tagsToCancel.includes(n.tag)) {
-                            n.close();
-                        }
-                    });
-                } catch (e) {
-                    console.error("Failed to fetch/close notifications from SW registration:", e);
-                }
-            }
-        }
-    };
-
-    const showImmediateNotification = (title: string, body: string, tag: string) => {
-        if (typeof window === "undefined" || !("Notification" in window)) return;
-
-        navigator.serviceWorker.getRegistration().then((reg) => {
-            if (reg) {
-                reg.showNotification(title, {
-                    body,
-                    tag,
-                    icon: "/icons/icon-192.png",
-                    badge: "/icons/icon-192.png",
-                    data: { url: window.location.pathname },
-                });
-            } else {
-                new Notification(title, {
-                    body,
-                    tag,
-                    icon: "/icons/icon-192.png",
-                });
-            }
-        });
+        await checkAndTriggerNotificationsHelper([medicine]);
     };
 
     const checkAndTriggerLocalNotifications = async (medicinesList: Medicine[]) => {
-        if (
-            typeof window === "undefined" ||
-            !("Notification" in window) ||
-            Notification.permission !== "granted"
-        ) {
-            return;
-        }
-
-        try {
-            const savedShown = localStorage.getItem("sahidawa_shown_notifications");
-            const shownMap = savedShown ? JSON.parse(savedShown) : {};
-            let updated = false;
-
-            const now = new Date();
-
-            for (const med of medicinesList) {
-                const { sevenDaysBefore, oneDayBefore } = getNotificationTargets(med.expiryDate);
-                const expiry = parseLocalDate(med.expiryDate);
-
-                if (!shownMap[med.id]) {
-                    shownMap[med.id] = { sevenDays: false, oneDay: false };
-                }
-
-                if (now >= sevenDaysBefore && now < oneDayBefore) {
-                    if (!shownMap[med.id].sevenDays) {
-                        showImmediateNotification(
-                            `Medicine Expiring Soon: ${med.name}`,
-                            `Your tracked medicine ${med.name} will expire in 7 days (on ${expiry.toLocaleDateString()}).`,
-                            `${med.id}-7days`
-                        );
-                        shownMap[med.id].sevenDays = true;
-                        updated = true;
-                    }
-                }
-
-                if (now >= oneDayBefore) {
-                    const expiryCutoff = new Date(expiry);
-                    expiryCutoff.setDate(expiry.getDate() + 7);
-                    if (now <= expiryCutoff) {
-                        if (!shownMap[med.id].oneDay) {
-                            showImmediateNotification(
-                                `Medicine Expiring Tomorrow: ${med.name}`,
-                                `Your tracked medicine ${med.name} will expire tomorrow (on ${expiry.toLocaleDateString()}).`,
-                                `${med.id}-1day`
-                            );
-                            shownMap[med.id].oneDay = true;
-                            updated = true;
-                        }
-                    }
-                }
-            }
-
-            if (updated) {
-                localStorage.setItem("sahidawa_shown_notifications", JSON.stringify(shownMap));
-            }
-        } catch (e) {
-            console.error("Error checking or triggering local notifications:", e);
-        }
+        await checkAndTriggerNotificationsHelper(medicinesList);
     };
 
     const handleScannerClose = useCallback(() => {

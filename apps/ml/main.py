@@ -8,13 +8,14 @@ from tracing import setup_tracing
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
 
+load_dotenv()
+
 setup_tracing()
 RequestsInstrumentor().instrument()
 
 from services.telemetry import configure_telemetry_logging
 from services.router_loader import include_router_if_available
 
-load_dotenv()
 configure_telemetry_logging()
 logger = logging.getLogger(__name__)
 

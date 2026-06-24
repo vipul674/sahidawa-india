@@ -651,10 +651,8 @@ function Step3() {
         // Step 2: Debouncing - Wait 500ms after last keystroke
         const timer = setTimeout(async () => {
             try {
-                // Cast to any to access optional address fields (city, state) returned by the API
-                const geo = (await geocodePincode(pincode)) as any;
+                const geo = await geocodePincode(pincode);
                 if (geo) {
-                    // Auto-populate City and State
                     if (geo.city) setValue("city", geo.city, { shouldValidate: true });
                     if (geo.state) setValue("state", geo.state, { shouldValidate: true });
                 }
