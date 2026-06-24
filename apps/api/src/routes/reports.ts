@@ -70,7 +70,8 @@ const createReportSchema = z
         medicineId: z.string().uuid().optional(),
     })
     .superRefine((data, ctx) => {
-        const validDistricts = INDIAN_STATES_AND_DISTRICTS[data.state];
+        const validDistricts =
+            INDIAN_STATES_AND_DISTRICTS[data.state as keyof typeof INDIAN_STATES_AND_DISTRICTS];
         if (!validDistricts) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
