@@ -11,7 +11,7 @@ import {
     User,
 } from "lucide-react";
 import { FcGoogle } from "react-icons/fc";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/routing";
 import { createBrowserClient } from "@supabase/ssr";
@@ -37,7 +37,10 @@ export default function SignUpPage() {
     const supabaseUrl = getSupabaseUrl();
     const supabaseKey = getSupabaseAnonKey();
     const isMissingEnvVars = !supabaseUrl || !supabaseKey;
-    const supabase = createBrowserClient(supabaseUrl, supabaseKey);
+    const supabase = useMemo(
+        () => createBrowserClient(supabaseUrl, supabaseKey),
+        [supabaseUrl, supabaseKey]
+    );
     const [fullName, setFullName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
