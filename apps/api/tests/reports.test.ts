@@ -305,6 +305,69 @@ describe("Reports API Routes", () => {
             expect(insertedPayload.risk_score).toBe(0.9);
             expect(insertedPayload.duplicate_group_id).toBe("original-report-id");
         });
+
+        it("does not leak stack trace or internal error details when validateReport throws", async () => {
+            const originalEnv = process.env.NODE_ENV;
+            process.env.NODE_ENV = "production";
+
+            const { validateReport } = require("../src/services/reportValidation.service");
+            validateReport.mockRejectedValueOnce(new Error("DB connection failed: ECONNREFUSED"));
+
+            const payload = {
+                medicineName: "Aspirin 500mg",
+                manufacturer: "TestCo",
+                description: "This is a detailed description of the issue",
+                images: ["https://example.com/image1.jpg"],
+                pharmacyName: "Test Pharmacy",
+                address: "123 Main St",
+                city: "Delhi",
+                state: "Delhi",
+                pincode: "110001",
+            };
+
+            const response = await request(app)
+                .post("/api/reports")
+                .set("X-Forwarded-For", "9.9.9.9")
+                .send(payload);
+
+            process.env.NODE_ENV = originalEnv;
+
+            expect(response.status).toBe(500);
+            expect(response.body).not.toHaveProperty("stack");
+            expect(response.body).not.toHaveProperty("details");
+            expect(response.body.error).not.toHaveProperty("stack");
+            expect(JSON.stringify(response.body)).not.toContain("ECONNREFUSED");
+            expect(JSON.stringify(response.body)).not.toContain(".ts");
+        });
+
+        it("delegates errors to the global error handler instead of the inline catch block", async () => {
+            const { validateReport } = require("../src/services/reportValidation.service");
+            validateReport.mockRejectedValueOnce(new Error("Simulated internal failure"));
+
+            const payload = {
+                medicineName: "Aspirin 500mg",
+                manufacturer: "TestCo",
+                description: "This is a detailed description of the issue",
+                images: ["https://example.com/image1.jpg"],
+                pharmacyName: "Test Pharmacy",
+                address: "123 Main St",
+                city: "Delhi",
+                state: "Delhi",
+                pincode: "110001",
+            };
+
+            const response = await request(app)
+                .post("/api/reports")
+                .set("X-Forwarded-For", "9.9.9.8")
+                .send(payload);
+
+            // Shape matches errorHandler's { success, error: { message, ... } }
+            // contract, not the old inline { error, details, stack } shape.
+            expect(response.status).toBe(500);
+            expect(response.body).toHaveProperty("success", false);
+            expect(response.body.error).toHaveProperty("message");
+            expect(response.body).not.toHaveProperty("details");
+        });
     });
 
     describe("GET /api/reports/mine", () => {

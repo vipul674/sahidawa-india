@@ -1,4 +1,4 @@
-import { Router, Response } from "express";
+import { Router, Response, NextFunction } from "express";
 import { z } from "zod";
 import { supabase } from "../db/client";
 import { AuthenticatedRequest, optionalAuth, requireAuth, requireRole } from "../middleware/auth";
@@ -78,7 +78,7 @@ reportsRouter.post(
     "/",
     reportLimiter,
     optionalAuth,
-    async (req: AuthenticatedRequest, res: Response) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
         const parsed = createReportSchema.safeParse(req.body);
 
         if (!parsed.success) {
@@ -160,12 +160,7 @@ reportsRouter.post(
 
             res.status(201).json(response);
         } catch (err) {
-            console.error("Unexpected error in POST /api/reports:", err);
-            res.status(500).json({
-                error: "An unexpected error occurred",
-                details: err instanceof Error ? err.message : String(err),
-                stack: err instanceof Error ? err.stack : undefined,
-            });
+            next(err);
         }
     }
 );
