@@ -1,4 +1,5 @@
 import type React from "react";
+import { useEffect, useState } from "react";
 import { Bell, BellOff, Download, FileText, Printer, ScanLine, Upload, X } from "lucide-react";
 
 import { parseLocalDate } from "./dateUtils";
@@ -12,6 +13,7 @@ interface ExpiryFormProps {
     notes: string;
     dateError: string;
     isExpired: boolean;
+    isSubmitting: boolean;
     importError: string | null;
     medicinesCount: number;
     fileInputRef: React.RefObject<HTMLInputElement | null>;
@@ -42,6 +44,7 @@ export function ExpiryForm({
     notes,
     dateError,
     isExpired,
+    isSubmitting,
     importError,
     medicinesCount,
     fileInputRef,
@@ -62,7 +65,11 @@ export function ExpiryForm({
     onImport,
     onRequestNotificationPermission,
 }: ExpiryFormProps) {
-    const hasNotifications = typeof window !== "undefined" && "Notification" in window;
+    const [hasNotifications, setHasNotifications] = useState(false);
+
+    useEffect(() => {
+        setHasNotifications("Notification" in window);
+    }, []);
 
     return (
         <div className="h-fit rounded-2xl border border-(--color-border-muted) bg-(--color-surface-muted) p-6 shadow-sm md:sticky md:top-32 md:col-span-1">

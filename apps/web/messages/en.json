@@ -565,6 +565,8 @@
         "filterExpired": "Expired",
         "filterExpiringSoon": "Expiring Soon",
         "filterSafe": "Safe",
+        "print": "Print",
+        "exportPDF": "Export PDF",
         "exportBackup": "Export Backup",
         "importBackup": "Import Backup",
         "importError": "Invalid backup file. Please upload a valid JSON backup.",
