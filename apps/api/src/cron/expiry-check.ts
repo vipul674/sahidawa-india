@@ -15,7 +15,6 @@ export const initExpiryCron = () => {
 
             const flagColumn = `notified_${days}d`;
 
-            // Fetch medicines expiring within 'days'
             const { data, error } = await supabase
                 .from("tracked_medicines")
                 .select("*")
@@ -28,19 +27,12 @@ export const initExpiryCron = () => {
             }
 
             for (const medicine of data || []) {
-                // Here is where you would trigger the notification
-                // e.g., sendNotification(medicine.user_id, `Your medicine expires in ${days} days!`);
-
-                // Mark as notified to prevent duplicate alerts
                 await supabase
                     .from("tracked_medicines")
                     .update({ [flagColumn]: true })
                     .eq("id", medicine.id);
             }
-
-            logger.info(
-                `${days}d expiry check completed. ${data?.length || 0} medicines processed.`
-            );
+            logger.info(`${days}d check done. ${data?.length || 0} medicines processed.`);
         }
     });
 };
