@@ -15,6 +15,7 @@ import hashlib
 import base64
 from pathlib import Path
 import tempfile
+import gzip
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +61,7 @@ def prune_cache():
 
         files = []
         total_size = 0
-        for p in CACHE_DIR.glob("*.mp3"):
+        for p in CACHE_DIR.glob("*.mp3.gz"):
             if p.is_file():
                 try:
                     stat = p.stat()
@@ -142,7 +143,7 @@ class TTSResponse(BaseModel):
 def get_cache_key(text: str, language_code: str, gender: str) -> str:
     """Generate cache key from text, language, and gender"""
     combined = f"{text}:{language_code}:{gender}"
-    return hashlib.md5(combined.encode()).hexdigest()
+    return hashlib.sha256(combined.encode()).hexdigest()
 
 
 def generate_with_google(text: str, language_code: str, gender: str) -> tuple[bytes, str]:
@@ -262,7 +263,7 @@ async def generate_tts(request: TTSRequest):
     """
 
     cache_key = get_cache_key(request.text, request.language_code, request.gender)
-    cache_file = CACHE_DIR / f"{cache_key}.mp3"
+    cache_file = CACHE_DIR / f"{cache_key}.mp3.gz"
 
     # Check cache first
     if cache_file.exists():
@@ -274,7 +275,8 @@ async def generate_tts(request: TTSRequest):
                 logger.warning(f"Failed to update cache file access time: {te}")
 
             with open(cache_file, "rb") as f:
-                audio_data = f.read()
+                compressed_data = f.read()
+            audio_data = gzip.decompress(compressed_data)
             
             return TTSResponse(
                 audio_base64=base64.b64encode(audio_data).decode('utf-8'),
@@ -302,8 +304,9 @@ async def generate_tts(request: TTSRequest):
 
         # Cache the result
         try:
+            compressed_audio = gzip.compress(audio_content)
             with open(cache_file, "wb") as f:
-                f.write(audio_content)
+                f.write(compressed_audio)
             logger.info(f"✓ Cached TTS result to {cache_file}")
             try:
                 prune_cache()

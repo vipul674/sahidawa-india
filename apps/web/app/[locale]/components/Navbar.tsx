@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import Image from "next/image";
 import { MessageCircle } from "lucide-react";
-import { Link, usePathname } from "@/i18n/routing";
+import { Link, usePathname, useRouter } from "@/i18n/routing";
 import { useTranslations } from "next-intl";
 import LanguageSwitcher from "../LanguageSwitcher";
 import { ThemeToggle } from "./ThemeToggle";
@@ -19,8 +19,12 @@ import MobileBottomNav from "./Navbar/MobileBottomNav";
 
 export default function Navbar() {
     const pathname = usePathname();
+    const router = useRouter();
     const tHome = useTranslations("Home");
+    const tNavbar = useTranslations("Navbar");
     const { session, isLoading: authLoading } = useSession();
+
+    const supabase = useMemo(() => createBrowserClient(getSupabaseUrl(), getSupabaseAnonKey()), []);
 
     // UI States
     const [isNavVisible, setIsNavVisible] = useState(true);
@@ -55,7 +59,6 @@ export default function Navbar() {
         setIsMenuOpen(false);
         try {
             await fetch("/api/auth/signout", { method: "POST" });
-            const supabase = createBrowserClient(getSupabaseUrl(), getSupabaseAnonKey());
             await supabase.auth.signOut();
         } catch (error) {
             console.error("Logout error:", error);
@@ -73,7 +76,8 @@ export default function Navbar() {
                     .replace(/^ +/, "")
                     .replace(/=.*/, `=;expires=${new Date(0).toUTCString()};path=/`);
             });
-            window.location.href = "/";
+            router.replace("/");
+            router.refresh();
         }
     };
 
@@ -95,8 +99,8 @@ export default function Navbar() {
                         <Link href="/" className="flex min-w-0 items-center gap-1.5 sm:gap-2">
                             <Image
                                 src="/icons/sahidawa-logo.png"
-                                alt="SahiDawa Logo"
-                                aria-label="SahiDawa Logo"
+                                alt={tNavbar("logo_alt")}
+                                aria-label={tNavbar("logo_alt")}
                                 className="h-8 w-8 shrink-0 object-contain sm:h-10 sm:w-10"
                                 width={40}
                                 height={40}
