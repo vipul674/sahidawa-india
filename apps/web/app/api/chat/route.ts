@@ -226,10 +226,28 @@ export async function POST(req: Request) {
             let emergencyFromML = false;
 
             try {
-                const mlServiceUrl =
-                    process.env.ML_SERVICE_URL?.trim() ||
-                    process.env.NEXT_PUBLIC_ML_SERVICE_URL?.trim() ||
-                    "http://localhost:8000";
+                const mlServiceUrl = process.env.ML_SERVICE_URL?.trim()?.replace(/\/+$/, "");
+
+                if (!mlServiceUrl) {
+                    structuredLog({
+                        log_level: "error",
+                        route: ROUTE,
+                        error: {
+                            message: "ML_SERVICE_URL is not configured",
+                            code: 500,
+                            stack: undefined,
+                        },
+                        meta: { missingVars: ["ML_SERVICE_URL"] },
+                    });
+                    return NextResponse.json(
+                        {
+                            error: "Server configuration error: ML service URL is missing.",
+                            code: "ML_SERVICE_URL_MISSING",
+                        },
+                        { status: 500 }
+                    );
+                }
+
                 const formattedMessages = trimmedMessages.map((m: any) => ({
                     role:
                         m.role === ChatRoles.ASSISTANT || m.role === ChatRoles.MODEL
