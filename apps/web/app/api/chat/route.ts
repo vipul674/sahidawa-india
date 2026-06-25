@@ -11,6 +11,8 @@ import { trimHistoryByTokens } from "@/lib/chatUtils";
 
 const summaryCache = new Map<string, string>();
 
+const ML_TRIAGE_TIMEOUT_MS = 30_000;
+
 const DEFAULT_DISCLAIMER =
     "This guidance is for informational use only and is not a diagnosis. Consult a doctor or pharmacist, especially for severe or persistent symptoms.";
 
@@ -243,6 +245,9 @@ export async function POST(req: Request) {
                     formattedMessages.push({ role: ChatRoles.USER, content: latestMessageText });
                 }
 
+                const mlAbortController = new AbortController();
+                const mlTimeoutId = setTimeout(() => mlAbortController.abort(), ML_TRIAGE_TIMEOUT_MS);
+
                 const mlResponse = await fetch(`${mlServiceUrl}/triage/chat`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -250,7 +255,10 @@ export async function POST(req: Request) {
                         messages: formattedMessages,
                         locale: locale || "en",
                     }),
+                    signal: mlAbortController.signal,
                 });
+
+                clearTimeout(mlTimeoutId);
 
                 if (!mlResponse.ok) {
                     throw new Error(`ML service returned status ${mlResponse.status}`);
@@ -277,13 +285,23 @@ export async function POST(req: Request) {
                     },
                 });
             } catch (mlError: any) {
+                const isTimeout = mlError instanceof Error && mlError.name === "AbortError";
                 structuredLog({
-                    log_level: "warn",
+                    log_level: isTimeout ? "error" : "warn",
                     route: ROUTE,
+                    latency_ms: Date.now() - startTime,
+                    error: isTimeout
+                        ? {
+                              message: "ML triage service timed out",
+                              code: 504,
+                              stack: mlError.stack,
+                          }
+                        : undefined,
                     meta: {
-                        reason: "ml_service_triage_failed",
+                        reason: isTimeout ? "ml_service_triage_timeout" : "ml_service_triage_failed",
                         error: mlError.message,
                         fallback: "direct_gemini",
+                        ...(isTimeout ? { timeoutMs: ML_TRIAGE_TIMEOUT_MS } : {}),
                     },
                 });
 
