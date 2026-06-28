@@ -1,5 +1,11 @@
 import { NextFunction, Response } from "express";
-import { AuthenticatedRequest, createAuthMiddleware, requireRole } from "../src/middleware/auth";
+import { User } from "@supabase/supabase-js";
+import {
+    AuthenticatedRequest,
+    createAuthMiddleware,
+    requireRole,
+    getUserRole,
+} from "../src/middleware/auth";
 
 const createResponse = () => {
     const res = {

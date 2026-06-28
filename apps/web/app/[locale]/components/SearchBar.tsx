@@ -1,5 +1,12 @@
 "use client";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, {
+    useCallback,
+    useDeferredValue,
+    useEffect,
+    useRef,
+    useState,
+    useTransition,
+} from "react";
 import { Search, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useTranslations } from "next-intl";
@@ -34,11 +41,15 @@ export default function SearchBar({ dark = false, onSearchChange }: SearchBarPro
     const [error, setError] = useState<string | null>(null);
     const [noResults, setNoResults] = useState(false);
     const [query, setQuery] = useState<string>("");
+    const deferredQuery = useDeferredValue(query);
+    const trimmedQuery = query.trim();
+    const deferredTrimmedQuery = deferredQuery.trim();
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [activeIndex, setActiveIndex] = useState<number>(-1);
 
     const [isOpen, setIsOpen] = useState<boolean>(false);
     const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [, startTransition] = useTransition();
 
     // Search History State
     const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -346,13 +357,11 @@ export default function SearchBar({ dark = false, onSearchChange }: SearchBarPro
     }, []);
 
     useEffect(() => {
-        const trimmed = query.trim();
-
         if (debounceTimer.current) {
             clearTimeout(debounceTimer.current);
         }
 
-        if (!trimmed) {
+        if (!trimmedQuery) {
             setSuggestions([]);
             setIsLoading(false);
             setNoResults(false);
@@ -362,7 +371,7 @@ export default function SearchBar({ dark = false, onSearchChange }: SearchBarPro
         }
 
         debounceTimer.current = setTimeout(() => {
-            fetchSuggestions(trimmed);
+            fetchSuggestions(deferredTrimmedQuery);
         }, DEBOUNCE_MS);
 
         return () => {
@@ -371,7 +380,7 @@ export default function SearchBar({ dark = false, onSearchChange }: SearchBarPro
             }
             abortControllerRef.current?.abort();
         };
-    }, [query, fetchSuggestions, onSearchChange]);
+    }, [trimmedQuery, deferredTrimmedQuery, fetchSuggestions, onSearchChange]);
 
     // ── Select a suggestion ────────────────────────────────────────────────────
     const selectSuggestion = useCallback(
@@ -398,7 +407,7 @@ export default function SearchBar({ dark = false, onSearchChange }: SearchBarPro
         [onSearchChange, addToHistory]
     );
 
-    const isHistoryMode = query.trim() === "";
+    const isHistoryMode = deferredTrimmedQuery === "";
     const listLength = isHistoryMode ? history.length : suggestions.length;
 
     // ── Keyboard navigation ────────────────────────────────────────────────────
@@ -439,7 +448,7 @@ export default function SearchBar({ dark = false, onSearchChange }: SearchBarPro
     // ── Input change ───────────────────────────────────────────────────────────
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setQuery(e.target.value);
-        setActiveIndex(-1);
+        startTransition(() => setActiveIndex(-1));
     };
 
     // ── Render ─────────────────────────────────────────────────────────────────
@@ -490,7 +499,7 @@ export default function SearchBar({ dark = false, onSearchChange }: SearchBarPro
                                 ? "text-slate-100 placeholder:text-slate-500"
                                 : "text-slate-800 placeholder:text-slate-400 dark:text-slate-100 dark:placeholder:text-slate-500"
                         }`}
-                        aria-label="Search medicine or batch"
+                        aria-label={tHome("search_input_aria")}
                     />
 
                     {/* ── Clear (X) button — only when input has text ── */}
@@ -505,7 +514,7 @@ export default function SearchBar({ dark = false, onSearchChange }: SearchBarPro
                                 onSearchChange?.("");
                                 inputRef.current?.focus();
                             }}
-                            aria-label="Clear search"
+                            aria-label={tHome("clear_search")}
                             className={`shrink-0 rounded-full p-1 transition-colors duration-150 ${
                                 dark
                                     ? "text-slate-500 hover:bg-slate-700 hover:text-slate-300"
@@ -528,7 +537,7 @@ export default function SearchBar({ dark = false, onSearchChange }: SearchBarPro
                     <button
                         onClick={() => performSearch(query)}
                         className="flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl bg-linear-to-r from-emerald-500 to-teal-500 p-2.5 text-sm font-bold text-white shadow-md shadow-emerald-500/25 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-xl hover:shadow-emerald-500/30 active:scale-95 sm:px-5 sm:py-2.5"
-                        aria-label="Submit search"
+                        aria-label={tHome("submit_search")}
                     >
                         <Search size={16} aria-hidden="true" />
                         <span className="hidden sm:inline">{tHome("search_button")}</span>
@@ -546,12 +555,12 @@ export default function SearchBar({ dark = false, onSearchChange }: SearchBarPro
                 error={error}
                 noResults={noResults}
                 onRetry={() => fetchSuggestions(query.trim())}
-                isHistory={query.trim() === ""}
+                isHistory={isHistoryMode}
                 historyItems={history}
                 onPinToggle={togglePin}
                 onClearHistory={clearHistory}
                 onDeleteItem={deleteFromHistory}
-                query={query.trim()}
+                query={deferredTrimmedQuery}
             />
         </div>
     );
