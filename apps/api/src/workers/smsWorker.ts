@@ -1,9 +1,12 @@
 import IORedis from "ioredis";
-const connection = new IORedis(process.env.REDIS_URL);
+import { Worker, Job } from "bullmq";
+import logger from "../utils/logger";
+
+const connection = new IORedis(process.env.REDIS_URL as string, { maxRetriesPerRequest: null });
 
 new Worker(
     "sms-queue",
-    async (job) => {
+    async (job: Job) => {
         const { phone, message, language } = job.data;
 
         logger.info(`[SMS][${language}] Processing job for ${phone}`);
@@ -48,7 +51,7 @@ new Worker(
         throw new Error(`Twilio SMS API error: ${response.status} ${errText}`);
     },
     {
-        connection,
+        connection: connection as any,
     }
 );
 
