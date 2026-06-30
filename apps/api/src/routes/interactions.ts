@@ -469,7 +469,9 @@ router.post("/check", interactionCheckLimiter, async (req: Request, res: Respons
 
         const genericToOriginalMap = new Map<string, string>();
         resolvedList.forEach((r) => {
-            genericToOriginalMap.set(r.generic.toLowerCase(), r.input);
+            if (!genericToOriginalMap.has(r.generic.toLowerCase())) {
+                genericToOriginalMap.set(r.generic.toLowerCase(), r.input);
+            }
         });
 
         const resolvedGenerics = Array.from(
