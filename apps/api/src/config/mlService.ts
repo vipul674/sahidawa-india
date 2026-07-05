@@ -22,8 +22,12 @@ const BLOCKED_HOSTNAME_PATTERNS = [
 /**
  * Returns true when the hostname is a safe external address, false for any
  * private, loopback, or link-local hostname.
+ * In non-production environments, localhost is allowed for local development.
  */
 function isAllowedHostname(hostname: string): boolean {
+    if (process.env.NODE_ENV !== "production" && /^localhost$/i.test(hostname)) {
+        return true;
+    }
     return !BLOCKED_HOSTNAME_PATTERNS.some((pattern) => pattern.test(hostname));
 }
 
